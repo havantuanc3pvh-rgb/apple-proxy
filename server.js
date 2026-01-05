@@ -1,38 +1,40 @@
 const express = require("express");
-const { createProxyMiddleware } = require("http-proxy-middleware");
-
+const fetch = require("node-fetch");
 const app = express();
 
-// BASIC AUTH
-const USERNAME = "Hà Văn Tuấn";
-const PASSWORD = "Tuan@12345";
+app.use(express.urlencoded({ extended: true }));
 
-app.use((req, res, next) => {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith("Basic ")) {
-    res.set("WWW-Authenticate", "Basic");
-    return res.status(401).send("Authentication required");
-  }
-
-  const base64Credentials = auth.split(" ")[1];
-  const credentials = Buffer.from(base64Credentials, "base64").toString("utf8");
-  const [user, pass] = credentials.split(":");
-
-  if (user !== USERNAME || pass !== PASSWORD) {
-    return res.status(403).send("Access denied");
-  }
-
-  next();
+// Trang giao diện
+app.get("/", (req, res) => {
+  res.send(`
+    <h2>Drive Proxy</h2>
+    <form method="POST" action="/go">
+      <input type="text" name="link" placeholder="Dán link Google Drive vào đây" style="width:400px" />
+      <button type="submit">Mở</button>
+    </form>
+  `);
 });
 
-// PROXY APPLE
-app.use("/", createProxyMiddleware({
-  target: "https://www.apple.com",
-  changeOrigin: true,
-  secure: true
-}));
+// Xử lý link Drive
+app.post("/go", async (req, res) => {
+  let link = req.body.link;
 
-const PORT = process.env.PORT || 3000;
+  if (!link) {
+    return res.send("Thiếu link Google Drive");
+  }
+
+  // Chuyển link Drive sang dạng xem trực tiếp
+  let fileId = link.match(/[-\\w]{25,}/);
+  if (!fileId) {
+    return res.send("Link không hợp lệ");
+  }
+
+  let driveUrl = `https://drive.google.com/uc?id=${fileId[0]}&export=download`;
+
+  res.redirect(driveUrl);
+});
+
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log("Apple proxy running");
+  console.log("Drive Proxy đang chạy tại cổng", PORT);
 });
